@@ -1,0 +1,291 @@
+<div class="admin-layout" [class.dark]="darkMode">
+  <!-- TOP NAV -->
+  <header class="admin-header">
+    <div class="admin-brand">
+      <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+        <rect width="40" height="40" rx="10" fill="#2563eb"/>
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="white" transform="translate(8,8) scale(0.6)"/>
+      </svg>
+      <span>Admin Panel</span>
+    </div>
+    <nav class="admin-nav">
+      <button *ngFor="let tab of ['dashboard','users','models','analytics','logs']"
+              [class.active]="activeTab === tab"
+              (click)="selectTab(tab)">
+        {{ tab | titlecase }}
+      </button>
+    </nav>
+    <div class="admin-actions">
+      <button class="icon-btn" (click)="toggleTheme()">
+        <svg *ngIf="!darkMode" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+        </svg>
+        <svg *ngIf="darkMode" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+        </svg>
+      </button>
+      <button class="btn-secondary" (click)="goToChat()">← Back to Chat</button>
+      <button class="btn-danger-sm" (click)="logout()">Logout</button>
+    </div>
+  </header>
+
+  <main class="admin-main">
+
+    <!-- DASHBOARD TAB -->
+    <div *ngIf="activeTab === 'dashboard'">
+      <h2 class="section-title">Overview</h2>
+      <div class="stats-grid" *ngIf="dashboard">
+        <div class="stat-card">
+          <div class="stat-icon blue">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+          </div>
+          <div class="stat-body">
+            <div class="stat-value">{{ dashboard.totalUsers | number }}</div>
+            <div class="stat-label">Total Users</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+          </div>
+          <div class="stat-body">
+            <div class="stat-value">{{ dashboard.activeUsers | number }}</div>
+            <div class="stat-label">Online (1h)</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon purple">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+            </svg>
+          </div>
+          <div class="stat-body">
+            <div class="stat-value">{{ dashboard.totalRequests | number }}</div>
+            <div class="stat-label">Total Requests</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon orange">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+            </svg>
+          </div>
+          <div class="stat-body">
+            <div class="stat-value">{{ dashboard.tokensToday | number }}</div>
+            <div class="stat-label">Tokens Today</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dashboard-grid" *ngIf="dashboard">
+        <div class="panel">
+          <h3>Model Usage (7d)</h3>
+          <table class="data-table">
+            <thead><tr><th>Model</th><th>Requests</th><th>Tokens</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let m of dashboard.modelUsage">
+                <td><span class="badge-model">{{ m.model_name }}</span></td>
+                <td>{{ m.requests | number }}</td>
+                <td>{{ m.tokens | number }}</td>
+              </tr>
+              <tr *ngIf="!dashboard.modelUsage?.length"><td colspan="3" class="empty-cell">No data yet</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Recent Activity</h3>
+          <div class="activity-list">
+            <div *ngFor="let log of dashboard.recentActivity" class="activity-item">
+              <span class="activity-action">{{ log.action }}</span>
+              <span class="activity-time">{{ log.created_at | date:'short' }}</span>
+            </div>
+            <div *ngIf="!dashboard.recentActivity?.length" class="empty-cell">No recent activity</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USERS TAB -->
+    <div *ngIf="activeTab === 'users'">
+      <div class="section-header">
+        <h2 class="section-title">Users <span class="count-badge">{{ totalUsers }}</span></h2>
+        <div class="section-actions">
+          <input class="search-input" type="text" placeholder="Search users..." [(ngModel)]="searchUser" (ngModelChange)="loadUsers()"/>
+          <button class="btn-primary" (click)="showNewUserForm = !showNewUserForm">+ Add User</button>
+        </div>
+      </div>
+
+      <!-- New User Form -->
+      <div class="form-panel" *ngIf="showNewUserForm">
+        <h3>Create New User</h3>
+        <div class="form-error" *ngIf="formError">{{ formError }}</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Username *</label>
+            <input type="text" [(ngModel)]="newUserForm.username" placeholder="username"/>
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" [(ngModel)]="newUserForm.email" placeholder="email@company.com"/>
+          </div>
+          <div class="form-group">
+            <label>Password *</label>
+            <input type="password" [(ngModel)]="newUserForm.password" placeholder="Min 6 chars"/>
+          </div>
+          <div class="form-group">
+            <label>Role</label>
+            <select [(ngModel)]="newUserForm.role">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Daily Token Limit</label>
+            <input type="number" [(ngModel)]="newUserForm.dailyTokenLimit"/>
+          </div>
+          <div class="form-group">
+            <label>Monthly Token Limit</label>
+            <input type="number" [(ngModel)]="newUserForm.monthlyTokenLimit"/>
+          </div>
+        </div>
+        <div class="form-footer">
+          <button class="btn-primary" (click)="createUser()">Create User</button>
+          <button class="btn-secondary" (click)="showNewUserForm = false">Cancel</button>
+        </div>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="data-table full">
+          <thead>
+            <tr>
+              <th>Username</th><th>Email</th><th>Role</th><th>Status</th>
+              <th>Daily Used</th><th>Monthly Used</th><th>Last Login</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of users">
+              <td><strong>{{ user.username }}</strong></td>
+              <td>{{ user.email || '—' }}</td>
+              <td><span class="badge" [class.badge-admin]="user.role === 'admin'">{{ user.role }}</span></td>
+              <td>
+                <span class="status-dot" [class.active]="user.is_active && !user.is_suspended" [class.suspended]="user.is_suspended"></span>
+                {{ user.is_suspended ? 'Suspended' : user.is_active ? 'Active' : 'Inactive' }}
+              </td>
+              <td>{{ user.daily_used_tokens | number }} / {{ user.daily_token_limit | number }}</td>
+              <td>{{ user.monthly_used_tokens | number }} / {{ user.monthly_token_limit | number }}</td>
+              <td>{{ user.last_login ? (user.last_login | date:'short') : 'Never' }}</td>
+              <td>
+                <div class="action-btns">
+                  <button class="btn-sm" (click)="suspendUser(user)">{{ user.is_suspended ? 'Unsuspend' : 'Suspend' }}</button>
+                  <button class="btn-sm" (click)="resetPassword(user.id)">Reset PW</button>
+                  <button class="btn-sm" (click)="resetTokens(user.id, 'all')">Reset Tokens</button>
+                  <button class="btn-sm danger" (click)="deleteUser(user.id, user.username)">Delete</button>
+                </div>
+              </td>
+            </tr>
+            <tr *ngIf="!users.length && !isLoading">
+              <td colspan="8" class="empty-cell">No users found</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- MODELS TAB -->
+    <div *ngIf="activeTab === 'models'">
+      <h2 class="section-title">AI Model Management</h2>
+      <div class="models-grid">
+        <div class="model-card" *ngFor="let model of models">
+          <div class="model-header">
+            <div>
+              <h3>{{ model.display_name }}</h3>
+              <p class="model-name-slug">{{ model.model_name }}</p>
+            </div>
+            <div class="model-badges">
+              <span class="badge" [class.badge-green]="model.is_available" [class.badge-gray]="!model.is_available">
+                {{ model.is_available ? 'Available' : 'Not Pulled' }}
+              </span>
+              <span class="badge" [class.badge-blue]="model.is_enabled" [class.badge-gray]="!model.is_enabled">
+                {{ model.is_enabled ? 'Enabled' : 'Disabled' }}
+              </span>
+            </div>
+          </div>
+          <p class="model-desc">{{ model.description }}</p>
+          <div class="model-actions">
+            <button class="btn-sm" (click)="pullModel(model.model_name)" *ngIf="!model.is_available">Pull Model</button>
+            <button class="btn-sm" (click)="toggleModel(model)">{{ model.is_enabled ? 'Disable' : 'Enable' }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS TAB -->
+    <div *ngIf="activeTab === 'analytics'">
+      <h2 class="section-title">Analytics (Last 7 Days)</h2>
+      <div *ngIf="analytics" class="analytics-grid">
+        <div class="panel">
+          <h3>Top Users by Token Usage</h3>
+          <table class="data-table">
+            <thead><tr><th>User</th><th>Requests</th><th>Total Tokens</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let u of analytics.topUsers">
+                <td>{{ u.username }}</td>
+                <td>{{ u.requests | number }}</td>
+                <td>{{ u.total_tokens | number }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <h3>Model Distribution</h3>
+          <div class="model-dist" *ngFor="let m of analytics.modelDistribution">
+            <span>{{ m.model_name }}</span>
+            <div class="dist-bar-wrap">
+              <div class="dist-bar" [style.width.%]="(m.count / (analytics.topUsers[0]?.requests || 1)) * 100"></div>
+            </div>
+            <span class="dist-count">{{ m.count }}</span>
+          </div>
+        </div>
+        <div class="panel wide">
+          <h3>Daily Usage</h3>
+          <table class="data-table">
+            <thead><tr><th>Date</th><th>Requests</th><th>Tokens</th></tr></thead>
+            <tbody>
+              <tr *ngFor="let d of analytics.dailyUsage">
+                <td>{{ d.date | date:'mediumDate' }}</td>
+                <td>{{ d.requests | number }}</td>
+                <td>{{ d.tokens | number }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOGS TAB -->
+    <div *ngIf="activeTab === 'logs'">
+      <h2 class="section-title">Admin Audit Logs</h2>
+      <div class="table-wrapper">
+        <table class="data-table full">
+          <thead><tr><th>Action</th><th>Performed By</th><th>Target</th><th>Details</th><th>Time</th></tr></thead>
+          <tbody>
+            <tr *ngFor="let log of logs">
+              <td><span class="action-tag">{{ log.action }}</span></td>
+              <td>{{ log.performed_by_username }}</td>
+              <td>{{ log.target_username || '—' }}</td>
+              <td class="details-cell">{{ log.details | json }}</td>
+              <td>{{ log.created_at | date:'short' }}</td>
+            </tr>
+            <tr *ngIf="!logs.length"><td colspan="5" class="empty-cell">No logs found</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>

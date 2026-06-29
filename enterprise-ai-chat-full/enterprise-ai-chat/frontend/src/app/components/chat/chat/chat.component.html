@@ -1,0 +1,271 @@
+<div class="chat-layout" [class.dark]="darkMode">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" [class.closed]="!sidebarOpen">
+    <div class="sidebar-header">
+      <div class="brand">
+        <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
+          <rect width="40" height="40" rx="10" fill="#2563eb"/>
+          <path d="M20 8C13.373 8 8 13.373 8 20C8 26.627 13.373 32 20 32C26.627 32 32 26.627 32 20C32 13.373 26.627 8 20 8ZM20 14C21.657 14 23 15.343 23 17C23 18.657 21.657 20 20 20C18.343 20 17 18.657 17 17C17 15.343 18.343 14 20 14ZM20 29C17.333 29 14.96 27.78 13.4 25.867C13.44 23.533 17.333 22.25 20 22.25C22.653 22.25 26.56 23.533 26.6 25.867C25.04 27.78 22.667 29 20 29Z" fill="white"/>
+        </svg>
+        <span>NexusAI</span>
+      </div>
+      <button class="icon-btn" (click)="newChat()" title="New chat">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="sidebar-search">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" placeholder="Search chats..." [(ngModel)]="searchQuery" (ngModelChange)="onSearchChange($event)"/>
+    </div>
+
+    <div class="chat-list" *ngIf="!isLoadingChats">
+      <div *ngFor="let chat of filteredChats"
+           class="chat-item"
+           [class.active]="chat.id === currentChatId"
+           (click)="selectChat(chat.id)">
+
+        <div class="chat-item-content" *ngIf="editingChatId !== chat.id">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="chat-icon">
+            <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+          </svg>
+          <span class="chat-title">{{ chat.title }}</span>
+          <div class="chat-actions">
+            <button class="icon-btn-sm" (click)="startRename(chat, $event)" title="Rename">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            <button class="icon-btn-sm danger" (click)="deleteChat(chat.id, $event)" title="Delete">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="chat-rename" *ngIf="editingChatId === chat.id" (click)="$event.stopPropagation()">
+          <input type="text" [(ngModel)]="editingTitle" (keydown.enter)="saveRename(chat.id)" (keydown.escape)="editingChatId = null" autofocus/>
+          <button class="icon-btn-sm" (click)="saveRename(chat.id)">✓</button>
+          <button class="icon-btn-sm" (click)="editingChatId = null">✕</button>
+        </div>
+      </div>
+
+      <div *ngIf="filteredChats.length === 0" class="empty-chats">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+        <p>No chats yet</p>
+      </div>
+    </div>
+
+    <div class="sidebar-loading" *ngIf="isLoadingChats">
+      <div class="skeleton" *ngFor="let i of [1,2,3,4,5]"></div>
+    </div>
+
+    <!-- TOKEN INFO -->
+    <div class="token-panel" *ngIf="tokenInfo">
+      <div class="token-row">
+        <span class="token-label">Daily</span>
+        <span class="token-value" [class.low]="tokenInfo.dailyRemaining < 500">{{ tokenInfo.dailyRemaining | number }} left</span>
+      </div>
+      <div class="token-bar">
+        <div class="token-bar-fill" [style.width.%]="getTokenPercentage(tokenInfo.dailyUsedTokens, tokenInfo.dailyTokenLimit)"></div>
+      </div>
+
+      <div class="token-row" style="margin-top: 0.5rem">
+        <span class="token-label">Monthly</span>
+        <span class="token-value" [class.low]="tokenInfo.monthlyRemaining < 5000">{{ tokenInfo.monthlyRemaining | number }} left</span>
+      </div>
+      <div class="token-bar">
+        <div class="token-bar-fill monthly" [style.width.%]="getTokenPercentage(tokenInfo.monthlyUsedTokens, tokenInfo.monthlyTokenLimit)"></div>
+      </div>
+
+      <div class="token-reset">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        Resets in {{ tokenInfo.nextResetIn }}
+      </div>
+    </div>
+
+    <!-- SIDEBAR FOOTER -->
+    <div class="sidebar-footer">
+      <button class="sidebar-user" (click)="authService.isAdmin && router.navigate(['/admin'])">
+        <div class="avatar">{{ currentUser?.username?.[0]?.toUpperCase() }}</div>
+        <div class="user-info">
+          <span class="user-name">{{ currentUser?.username }}</span>
+          <span class="user-role">{{ currentUser?.role }}</span>
+        </div>
+        <span class="badge" *ngIf="currentUser?.role === 'admin'">Admin</span>
+      </button>
+      <div class="footer-actions">
+        <button class="icon-btn" (click)="toggleTheme()" title="Toggle theme">
+          <svg *ngIf="!darkMode" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          </svg>
+          <svg *ngIf="darkMode" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
+          </svg>
+        </button>
+        <button class="icon-btn" *ngIf="authService.isAdmin" (click)="router.navigate(['/admin'])" title="Admin panel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </button>
+        <button class="icon-btn danger" (click)="logout()" title="Logout">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN AREA -->
+  <main class="main-area">
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <button class="icon-btn" (click)="sidebarOpen = !sidebarOpen" title="Toggle sidebar">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+
+      <span class="topbar-title">{{ currentChat?.title || 'New Chat' }}</span>
+
+      <select class="model-select" [(ngModel)]="selectedModel">
+        <option *ngFor="let m of models" [value]="m.model_name">{{ m.display_name }}</option>
+        <option value="qwen3" *ngIf="!models.length">Qwen 3</option>
+        <option value="qwen2.5" *ngIf="!models.length">Qwen 2.5</option>
+        <option value="llama3" *ngIf="!models.length">Llama 3</option>
+        <option value="mistral" *ngIf="!models.length">Mistral</option>
+      </select>
+    </div>
+
+    <!-- MESSAGES -->
+    <div class="messages-area" #messagesContainer>
+      <!-- Welcome screen -->
+      <div class="welcome" *ngIf="!messages.length && !isStreaming && !isLoadingMessages">
+        <div class="welcome-icon">
+          <svg width="48" height="48" viewBox="0 0 40 40" fill="none">
+            <rect width="40" height="40" rx="10" fill="#2563eb"/>
+            <path d="M20 8C13.373 8 8 13.373 8 20C8 26.627 13.373 32 20 32C26.627 32 32 26.627 32 20C32 13.373 26.627 8 20 8ZM20 14C21.657 14 23 15.343 23 17C23 18.657 21.657 20 20 20C18.343 20 17 18.657 17 17C17 15.343 18.343 14 20 14ZM20 29C17.333 29 14.96 27.78 13.4 25.867C13.44 23.533 17.333 22.25 20 22.25C22.653 22.25 26.56 23.533 26.6 25.867C25.04 27.78 22.667 29 20 29Z" fill="white"/>
+          </svg>
+        </div>
+        <h2>How can I help you today?</h2>
+        <p>Start a conversation with <strong>{{ selectedModel }}</strong> or choose a model above.</p>
+        <div class="suggestion-grid">
+          <button class="suggestion" (click)="inputMessage = 'Explain quantum computing in simple terms'; sendMessage()">Explain quantum computing</button>
+          <button class="suggestion" (click)="inputMessage = 'Write a Python function to sort a list'; sendMessage()">Write Python code</button>
+          <button class="suggestion" (click)="inputMessage = 'Summarize the key points of machine learning'; sendMessage()">ML key concepts</button>
+          <button class="suggestion" (click)="inputMessage = 'Help me draft a professional email'; sendMessage()">Draft an email</button>
+        </div>
+      </div>
+
+      <div class="messages-loading" *ngIf="isLoadingMessages">
+        <div class="msg-skeleton" *ngFor="let i of [1,2,3]"></div>
+      </div>
+
+      <!-- Messages -->
+      <div class="messages-list" *ngIf="!isLoadingMessages">
+        <div *ngFor="let msg of messages" class="message-wrapper" [class.user-wrapper]="msg.sender === 'user'">
+          <div class="message" [class.user-msg]="msg.sender === 'user'" [class.ai-msg]="msg.sender === 'ai'">
+            <div class="msg-avatar" *ngIf="msg.sender === 'ai'">
+              <svg width="16" height="16" viewBox="0 0 40 40" fill="none">
+                <rect width="40" height="40" rx="8" fill="#2563eb"/>
+                <path d="M20 8C13.373 8 8 13.373 8 20C8 26.627 13.373 32 20 32C26.627 32 32 26.627 32 20C32 13.373 26.627 8 20 8ZM20 14C21.657 14 23 15.343 23 17C23 18.657 21.657 20 20 20C18.343 20 17 18.657 17 17C17 15.343 18.343 14 20 14ZM20 29C17.333 29 14.96 27.78 13.4 25.867C13.44 23.533 17.333 22.25 20 22.25C22.653 22.25 26.56 23.533 26.6 25.867C25.04 27.78 22.667 29 20 29Z" fill="white"/>
+              </svg>
+            </div>
+            <div class="msg-body">
+              <div class="msg-content" *ngIf="msg.sender === 'user'">{{ msg.content }}</div>
+              <div class="msg-content markdown" *ngIf="msg.sender === 'ai'" [innerHTML]="renderMarkdown(msg.content)"></div>
+              <div class="msg-meta">
+                <span class="msg-model" *ngIf="msg.sender === 'ai' && msg.model_name">{{ msg.model_name }}</span>
+                <span class="msg-tokens" *ngIf="msg.tokens_used">{{ msg.tokens_used }} tokens</span>
+                <button class="icon-btn-sm" (click)="copyMessage(msg.content)" title="Copy" *ngIf="msg.sender === 'ai'">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Streaming message -->
+        <div class="message-wrapper" *ngIf="isStreaming">
+          <div class="message ai-msg">
+            <div class="msg-avatar">
+              <svg width="16" height="16" viewBox="0 0 40 40" fill="none">
+                <rect width="40" height="40" rx="8" fill="#2563eb"/>
+                <path d="M20 8C13.373 8 8 13.373 8 20C8 26.627 13.373 32 20 32C26.627 32 32 26.627 32 20C32 13.373 26.627 8 20 8ZM20 14C21.657 14 23 15.343 23 17C23 18.657 21.657 20 20 20C18.343 20 17 18.657 17 17C17 15.343 18.343 14 20 14ZM20 29C17.333 29 14.96 27.78 13.4 25.867C13.44 23.533 17.333 22.25 20 22.25C22.653 22.25 26.56 23.533 26.6 25.867C25.04 27.78 22.667 29 20 29Z" fill="white"/>
+              </svg>
+            </div>
+            <div class="msg-body">
+              <div class="msg-content markdown" *ngIf="streamingMessage" [innerHTML]="renderMarkdown(streamingMessage)"></div>
+              <div class="typing-dots" *ngIf="!streamingMessage"><span></span><span></span><span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOKEN WARNING -->
+    <div class="token-warning" *ngIf="tokenInfo && tokenInfo.dailyRemaining <= 0">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2L1 21h22L12 2zm0 3.5L20.5 19h-17L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z"/>
+      </svg>
+      Daily token limit reached. Resets in {{ tokenInfo.nextResetIn }}.
+    </div>
+
+    <!-- INPUT AREA -->
+    <div class="input-area">
+      <div class="input-attachment" *ngIf="uploadedFile">
+        <span>📎 {{ uploadedFile.originalName }}</span>
+        <button (click)="uploadedFile = null">✕</button>
+      </div>
+
+      <div class="input-box" [class.disabled]="tokenInfo && tokenInfo.dailyRemaining <= 0">
+        <button class="input-icon-btn" (click)="fileInput.click()" title="Attach file" [disabled]="isUploading">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+          </svg>
+        </button>
+        <input #fileInput type="file" hidden accept="image/*,.pdf,.docx,.mp3,.mp4" (change)="onFileSelected($event)"/>
+
+        <textarea
+          #messageInput
+          [(ngModel)]="inputMessage"
+          (keydown)="onKeydown($event)"
+          placeholder="Message NexusAI..."
+          [disabled]="isStreaming || (tokenInfo !== null && tokenInfo.dailyRemaining <= 0)"
+          rows="1"
+          class="msg-textarea"
+        ></textarea>
+
+        <button class="send-btn"
+          [class.active]="inputMessage.trim()"
+          [disabled]="!inputMessage.trim() || isStreaming || (tokenInfo !== null && tokenInfo.dailyRemaining <= 0)"
+          (click)="sendMessage()"
+          title="Send message">
+          <svg *ngIf="!isStreaming" width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+          <div *ngIf="isStreaming" class="stop-icon"></div>
+        </button>
+      </div>
+      <p class="input-hint">NexusAI can make mistakes. Verify important information.</p>
+    </div>
+  </main>
+</div>
